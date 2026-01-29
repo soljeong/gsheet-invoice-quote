@@ -5,6 +5,8 @@ function onOpen() {
     .addToUi();
 }
 
+let LAST_PREVIEW_DATA = null;
+
 function generateQuotePdfFromSelection() {
   const ss = SpreadsheetApp.getActive();
   const sh = ss.getActiveSheet(); // '견적서' 시트에서 실행한다고 가정 (원하면 이름 고정 가능)
@@ -63,8 +65,14 @@ function generateQuotePdfFromSelection() {
     수신처: first[cTo],         // 수신자 -> 수신처(양식 표기용)
   };
 
-  // 5) 품목 리스트
-  const items = rows.map(row => {
+  // 5) 품목 리스트 (품명 기준 정렬)
+  const rowsSorted = rows.slice().sort((a, b) => {
+    const aName = String(a[cItem] || '').trim();
+    const bName = String(b[cItem] || '').trim();
+    return aName.localeCompare(bName, 'ko');
+  });
+
+  const items = rowsSorted.map(row => {
     const qty = Number(row[cQty] || 0);
     const unit = Number(row[cUnit] || 0);
     return {
@@ -84,18 +92,43 @@ function generateQuotePdfFromSelection() {
   
   // 6) HTML → PDF 생성
   const tpl = HtmlService.createTemplateFromFile('template');
-  tpl.data = { header, items, supply, vat, total, supplier: settings.supplier };
+  const previewData = { header, items, supply, vat, total, supplier: settings.supplier };
+  tpl.data = previewData;
 
-  const htmlOutput = tpl.evaluate().setSandboxMode(HtmlService.SandboxMode.IFRAME);
-  SpreadsheetApp.getUi().showModelessDialog(htmlOutput, '견적서 미리보기');
-  const blob = htmlOutput.getBlob().setName(`견적서_${quoteNo}.pdf`);
+  const htmlOutput = tpl.evaluate()
+    .setSandboxMode(HtmlService.SandboxMode.IFRAME)
+    .setWidth(1200)
+    .setHeight(900);
 
-  // 저장 폴더: 드라이브 루트 (원하면 폴더ID로 변경 가능)
-  const file = DriveApp.getRootFolder().createFile(blob);
+  // SpreadsheetApp.getUi().showModalDialog(htmlOutput, '견적서 미리보기');
+  // LAST_PREVIEW_DATA = previewData;
 
-  SpreadsheetApp.getUi().alert(
-    `PDF 생성 완료!\n\n견적번호: ${quoteNo}\n파일: ${file.getName()}\nURL: ${file.getUrl()}`
-  );
+  // PDF 생성 및 저장 (루트/견적서 폴더, 견적번호 파일명)
+  const pdfBlob = htmlOutput.getBlob().getAs(MimeType.PDF).setName(`${quoteNo}.pdf`);
+  const folder = getOrCreateSubfolder_(DriveApp.getRootFolder(), '견적서');
+  const file = overwriteFileInFolder_(folder, pdfBlob);
+
+  const linkTpl = HtmlService.createTemplateFromFile('pdf-link');
+  linkTpl.pdfUrl = file.getUrl();
+  const linkModal = linkTpl.evaluate()
+    .setSandboxMode(HtmlService.SandboxMode.IFRAME)
+    .setWidth(420)
+    .setHeight(160);
+  SpreadsheetApp.getUi().showModalDialog(linkModal, 'PDF 링크');
+}
+
+function openLastPreview_() {
+  if (!LAST_PREVIEW_DATA) {
+    SpreadsheetApp.getUi().alert('미리보기 데이터가 없습니다.');
+    return;
+  }
+  const tpl = HtmlService.createTemplateFromFile('template');
+  tpl.data = LAST_PREVIEW_DATA;
+  const htmlOutput = tpl.evaluate()
+    .setSandboxMode(HtmlService.SandboxMode.IFRAME)
+    .setWidth(1200)
+    .setHeight(900);
+  SpreadsheetApp.getUi().showModalDialog(htmlOutput, '견적서 미리보기');
 }
 
 function getSettings_(ss) {
@@ -127,4 +160,19 @@ function getSettings_(ss) {
       fax: map['공급자_팩스'] || ''
     }
   };
+}
+
+function getOrCreateSubfolder_(parent, name) {
+  const it = parent.getFoldersByName(name);
+  if (it.hasNext()) return it.next();
+  return parent.createFolder(name);
+}
+
+function overwriteFileInFolder_(folder, blob) {
+  const name = blob.getName();
+  const files = folder.getFilesByName(name);
+  while (files.hasNext()) {
+    files.next().setTrashed(true);
+  }
+  return folder.createFile(blob);
 }

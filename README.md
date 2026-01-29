@@ -7,15 +7,17 @@
 
 - `Code.js`: 스프레드시트 메뉴 추가 + 견적서 PDF 생성 로직
 - `template.html`: Apps Script에서 PDF로 렌더링하는 견적서 템플릿(현재 사용 중)
+- `template-preview.html`: 로컬 미리보기용 템플릿(더미데이터 기반)
+- `preview-data.js`: 로컬 미리보기용 더미데이터
+- `pdf-link.html`: PDF 저장 후 링크 버튼만 보여주는 모달 템플릿
 - `appsscript.json`: Apps Script 설정
-- (선택) `template preview.html`: 로컬 미리보기용 HTML (새 레포에서 재작성 예정)
 
 ## 동작 방식 요약
 
 1. 스프레드시트가 열릴 때 상단 메뉴에 **견적서 → 선택 견적번호로 PDF 생성** 메뉴가 생성됩니다.
 2. 사용자가 특정 행을 선택하고 메뉴를 실행하면, 해당 행의 `견적번호` 값을 기준으로 같은 견적번호를 가진 모든 행을 모읍니다.
-3. 템플릿(`template.html`)에 데이터를 주입해 미리보기(Modeless Dialog)를 띄우고, PDF로 저장합니다.
-4. 생성된 PDF는 **Google Drive 루트**에 저장되며 알림창에 URL이 표시됩니다.
+3. 품목은 **품명 기준으로 정렬**한 뒤 템플릿(`template.html`)에 데이터를 주입합니다.
+4. HTML을 **PDF로 렌더링하여 저장**하고, 저장된 PDF 링크를 모달(`pdf-link.html`)로 표시합니다.
 
 ## 시트 헤더 형식 (필수)
 
@@ -63,24 +65,72 @@
 
 - `template.html`
   - 레이아웃/폰트/컬러 조정
+  - 품명 중복 시 셀 병합 표시(세로 가운데 정렬)
 - `Code.js`
   - PDF 저장 폴더 변경 (`DriveApp.getRootFolder()` → 폴더 ID 사용)
   - 부가세율 변경(현재 10% 고정)
   - 견적번호 생성/자동 증가 기능 추가
+
+## 템플릿 로컬 미리보기 (Live Server)
+
+Apps Script 없이도 템플릿을 빠르게 수정/확인할 수 있습니다.
+
+1. VS Code 확장 `Live Server` 설치
+2. `template-preview.html`을 열고 **Open with Live Server** 실행
+3. `template-preview.html` / `preview-data.js`를 수정하면 즉시 반영
+4. 템플릿 수정이 끝나면 변경 내용을 `template.html`에 반영
+
+> `template.html`은 Apps Script 전용 템플릿입니다. 로컬 미리보기는 `template-preview.html`을 사용하세요.
+
+## PDF 저장 및 링크 표시
+
+- PDF는 `template.html`을 렌더링한 결과를 **PDF로 변환**하여 저장합니다.
+- 저장 위치: **드라이브 루트/견적서/**, 파일명은 `견적번호.pdf`
+- 저장 완료 후 `pdf-link.html` 모달에서 **PDF 열기 버튼**이 표시됩니다.
+
+## 미리보기 모달
+
+현재는 **미리보기 모달 표시가 주석 처리**되어 있습니다. 필요하면 `Code.js`의
+`showModalDialog` 부분을 다시 활성화하세요.
+
+## 템플릿 동기화 (preview → template)
+
+`template-preview.html`에서 수정한 내용을 `template.html`에 자동으로 반영하는 스크립트가 포함되어 있습니다.
+
+### 동작 방식
+
+- `template-preview.html`의 SYNC 마커 구간(`STYLE`, `BODY`)만 추출해서
+  `template.html`의 동일 구간을 치환합니다.
+- Apps Script 전용 스크립트(`<?!= ... ?>`)는 마커 밖에 있어 건드리지 않습니다.
+
+### 실행 방법
+
+컨테이너(또는 로컬) 터미널에서 아래 명령을 실행합니다.
+
+```
+node scripts/sync-template-from-preview.js
+```
 
 ## 미완성/작업 예정 (TODO)
 
 - PDF 저장 폴더 선택 기능(폴더 ID 설정 UI)
 - 견적번호 자동 생성 규칙
 - VAT 계산 옵션(면세/과세, 수동 입력 지원)
-- 템플릿 버전 정리(`QuoteTemplate.html` 정리 또는 삭제)
 - 미리보기/다운로드 UI 개선
 - 시트 유효성 검사 강화(숫자/날짜 검증)
+### 품목별 '금액' 계산에 로직 적용
+- 단가가 숫자면 단가와 수량을 곱한 금액으로, 시트의 금액 열 숫자는 무시
+- 단가가 숫자가 아니면 시트의 금액 열의 숫자를 가져오고
+
+### 할인 기능
+- 품명이 '할인' 인 행은 다른 품목과 달리 vat 계산 전에 그 금액만큼 더한다 (시트에 음수로 기재되어 있음)
+- 그 행이 없으면 서식에서도 표시되지 않아야 함
 
 ## 유의사항
 
 - 현재는 **선택한 행 기준으로 같은 견적번호를 가진 모든 행을 묶어 출력**합니다.
-- PDF는 생성 즉시 **구글 드라이브 루트**에 저장됩니다.
+- PDF는 생성 즉시 **구글 드라이브 루트의 `견적서/` 폴더**에 저장됩니다.
+- 파일명은 **견적번호.pdf**이며, 동일 이름이 있으면 **덮어쓰기(휴지통 처리 후 재생성)** 됩니다.
 - `견적서` 메뉴는 스프레드시트를 열 때마다 생성됩니다.
 
 ## 공개용 이관 메모

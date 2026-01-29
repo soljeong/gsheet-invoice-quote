@@ -96,17 +96,9 @@
  .quote-no-box .label { display: inline-block; width: 20px; }
 
   /* SYNC:STYLE:END */
-
-
-
 </style>
 
-
-  <script>
-    // Apps Script 템플릿에서 주입된 데이터를 사용합니다.
-  </script>
-
-
+  <script src="./preview-data.js"></script>
 </head>
 
 <body>
@@ -206,9 +198,13 @@
     </tr>
   </template>
   <!-- SYNC:BODY:END -->
-          
+
   <script>
-const data = <?!= JSON.stringify(data) ?>;
+const data = window.PREVIEW_DATA;
+
+if (!data) {
+  throw new Error("PREVIEW_DATA is missing. Check preview-data.js");
+}
 
 const won = n => "₩" + Number(n).toLocaleString("ko-KR");
 const dotDate = s => {
@@ -247,12 +243,6 @@ data.items.forEach(it => {
   row.querySelector(".note").textContent = it.note || "";
   tbody.appendChild(row);
 });
-
-
-</script>
-
-
+  </script>
 </body>
-
-
 </html>

@@ -7,8 +7,9 @@
 
 - `Code.js`: 스프레드시트 메뉴 추가 + 견적서 PDF 생성 로직
 - `template.html`: Apps Script에서 PDF로 렌더링하는 견적서 템플릿(현재 사용 중)
+- `template-preview.html`: 로컬 미리보기용 템플릿(더미데이터 기반)
+- `preview-data.js`: 로컬 미리보기용 더미데이터
 - `appsscript.json`: Apps Script 설정
-- (선택) `template preview.html`: 로컬 미리보기용 HTML (새 레포에서 재작성 예정)
 
 ## 동작 방식 요약
 
@@ -68,12 +69,40 @@
   - 부가세율 변경(현재 10% 고정)
   - 견적번호 생성/자동 증가 기능 추가
 
+## 템플릿 로컬 미리보기 (Live Server)
+
+Apps Script 없이도 템플릿을 빠르게 수정/확인할 수 있습니다.
+
+1. VS Code 확장 `Live Server` 설치
+2. `template-preview.html`을 열고 **Open with Live Server** 실행
+3. `template-preview.html` / `preview-data.js`를 수정하면 즉시 반영
+4. 템플릿 수정이 끝나면 변경 내용을 `template.html`에 반영
+
+> `template.html`은 Apps Script 전용 템플릿입니다. 로컬 미리보기는 `template-preview.html`을 사용하세요.
+
+## 템플릿 동기화 (preview → template)
+
+`template-preview.html`에서 수정한 내용을 `template.html`에 자동으로 반영하는 스크립트가 포함되어 있습니다.
+
+### 동작 방식
+
+- `template-preview.html`의 SYNC 마커 구간(`STYLE`, `BODY`)만 추출해서
+  `template.html`의 동일 구간을 치환합니다.
+- Apps Script 전용 스크립트(`<?!= ... ?>`)는 마커 밖에 있어 건드리지 않습니다.
+
+### 실행 방법
+
+컨테이너(또는 로컬) 터미널에서 아래 명령을 실행합니다.
+
+```
+node scripts/sync-template-from-preview.js
+```
+
 ## 미완성/작업 예정 (TODO)
 
 - PDF 저장 폴더 선택 기능(폴더 ID 설정 UI)
 - 견적번호 자동 생성 규칙
 - VAT 계산 옵션(면세/과세, 수동 입력 지원)
-- 템플릿 버전 정리(`QuoteTemplate.html` 정리 또는 삭제)
 - 미리보기/다운로드 UI 개선
 - 시트 유효성 검사 강화(숫자/날짜 검증)
 

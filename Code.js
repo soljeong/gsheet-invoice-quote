@@ -92,16 +92,12 @@ function generateQuotePdfFromSelection() {
   const tpl = HtmlService.createTemplateFromFile('template');
   tpl.data = { header, items, supply, vat, total, supplier: settings.supplier };
 
-  const htmlOutput = tpl.evaluate().setSandboxMode(HtmlService.SandboxMode.IFRAME);
-  SpreadsheetApp.getUi().showModelessDialog(htmlOutput, '견적서 미리보기');
-  const blob = htmlOutput.getBlob().setName(`견적서_${quoteNo}.pdf`);
+  const htmlOutput = tpl.evaluate()
+    .setSandboxMode(HtmlService.SandboxMode.IFRAME)
+    .setWidth(1200)
+    .setHeight(900);
 
-  // 저장 폴더: 드라이브 루트 (원하면 폴더ID로 변경 가능)
-  const file = DriveApp.getRootFolder().createFile(blob);
-
-  SpreadsheetApp.getUi().alert(
-    `PDF 생성 완료!\n\n견적번호: ${quoteNo}\n파일: ${file.getName()}\nURL: ${file.getUrl()}`
-  );
+  SpreadsheetApp.getUi().showModalDialog(htmlOutput, '견적서 미리보기');
 }
 
 function getSettings_(ss) {

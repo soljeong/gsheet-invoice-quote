@@ -1,5 +1,6 @@
 // Dummy data for local preview (Live Server).
-window.PREVIEW_DATA = {
+if (typeof window !== "undefined") {
+  window.PREVIEW_DATA = {
   header: {
     NO: "Q-2026-001",
     견적일: "2026-01-29",
@@ -18,10 +19,13 @@ window.PREVIEW_DATA = {
   items: [
     { name: "서비스 A", spec: "월간", qty: 1, unit: 150000, amount: 150000, note: "" },
     { name: "서비스 B", spec: "연간", qty: 1, unit: 350000, amount: 350000, note: "프로모션" },
-    { name: "서비스 B", spec: "연간2", qty: 1, unit: 350000, amount: 350000, note: "프로모션" },
+    { name: "서비스 B", spec: "연간2", qty: 1, unit: 350000, amount: 350000, note: "프로모션" }, 
+    { name: "서비스 B", spec: "연간2", qty: 1, unit: 350000, amount: 350000, note: "프로모션" }, 
+    { name: "서비스 B", spec: "연간2", qty: 1, unit: 350000, amount: 350000, note: "프로모션" }, 
     { name: "설치비", spec: "1회", qty: 1, unit: 50000, amount: 50000, note: "" }
   ],
   supply: 550000,
   vat: 55000,
   total: 605000
-};
+  };
+}

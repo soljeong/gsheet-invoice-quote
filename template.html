@@ -70,6 +70,8 @@
 
   table.items { width: 100%; border-collapse: collapse; margin-top: 6mm; }
   table.items th, table.items td { border: 1px solid #000; padding: 4px 6px; }
+  table.items td.name { vertical-align: middle; }
+  table.items td.name { vertical-align: middle; }
   table.items th { background: #f5f5f5; text-align: center; }
 
   .t-right { text-align: right; }
@@ -237,14 +239,31 @@ document.getElementById("sum-total").textContent = won(data.total);
 const tbody = document.getElementById("items-body");
 const tpl = document.getElementById("item-row-template");
 
+let lastName = null;
+let lastNameCell = null;
+let lastRowSpan = 1;
+
 data.items.forEach(it => {
   const row = tpl.content.cloneNode(true);
-  row.querySelector(".name").textContent = it.name;
+  const nameCell = row.querySelector(".name");
+
   row.querySelector(".spec").textContent = it.spec;
   row.querySelector(".qty").textContent = it.qty;
   row.querySelector(".unit").textContent = won(it.unit);
   row.querySelector(".amount").textContent = won(it.amount);
   row.querySelector(".note").textContent = it.note || "";
+
+  if (lastName && it.name === lastName && lastNameCell) {
+    lastRowSpan += 1;
+    lastNameCell.rowSpan = lastRowSpan;
+    nameCell.remove();
+  } else {
+    lastName = it.name;
+    lastNameCell = nameCell;
+    lastRowSpan = 1;
+    nameCell.textContent = it.name;
+  }
+
   tbody.appendChild(row);
 });
 

@@ -63,8 +63,14 @@ function generateQuotePdfFromSelection() {
     수신처: first[cTo],         // 수신자 -> 수신처(양식 표기용)
   };
 
-  // 5) 품목 리스트
-  const items = rows.map(row => {
+  // 5) 품목 리스트 (품명 기준 정렬)
+  const rowsSorted = rows.slice().sort((a, b) => {
+    const aName = String(a[cItem] || '').trim();
+    const bName = String(b[cItem] || '').trim();
+    return aName.localeCompare(bName, 'ko');
+  });
+
+  const items = rowsSorted.map(row => {
     const qty = Number(row[cQty] || 0);
     const unit = Number(row[cUnit] || 0);
     return {

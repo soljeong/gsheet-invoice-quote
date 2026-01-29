@@ -13,7 +13,15 @@
 
 	// Use 'postCreateCommand' to run commands after the container is created.
 	// "postCreateCommand": "yarn install",
-	"postCreateCommand": "npm install -g @google/clasp"
+	"postCreateCommand": "npm install -g @google/clasp",
+
+	"customizations": {
+		"vscode": {
+			"extensions": [
+				"openai.chatgpt"
+			]
+		}
+	}
 
 
 	// Configure tool-specific properties.

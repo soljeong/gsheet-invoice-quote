@@ -1,0 +1,253 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8" />
+<style>
+  /* ===== A4 설정 핵심 ===== */
+  @page {
+    size: A4;            /* ✅ A4 강제 */
+    margin: 14mm;        /* ✅ 원하는 여백(양식에 맞춰 조절) */
+  }
+
+  /* 모든 요소가 폭 계산을 안정적으로 하도록 */
+  *, *::before, *::after {
+    box-sizing: border-box;
+  }
+
+  html, body {
+    margin: 0;
+    padding: 0;
+  }
+
+  body {
+    font-family: Arial, "Apple SD Gothic Neo", "Malgun Gothic", sans-serif;
+    font-size: 12px;
+    background: #eee; /* 화면에서 종이 구분용 */
+  }
+
+  /* ===== 화면 미리보기용 “A4 종이” =====
+     - @page margin이 14mm면 실제 내용영역은
+       가로: 210 - 28 = 182mm
+       세로: 297 - 28 = 269mm
+     - 아래 .paper는 “종이 전체”의 외곽 컨테이너이고
+       padding으로 인쇄 여백을 동일하게 재현합니다.
+  */
+  .paper {
+    width: 210mm;
+    min-height: 297mm;     /* ✅ 1장 기준 */
+    margin: 12px auto;
+    background: #fff;
+    padding: 14mm;         /* ✅ @page margin과 동일하게 */
+    box-shadow: 0 2px 12px rgba(0,0,0,.15);
+    overflow: hidden;      /* ✅ 튀어나오는 요소 차단 */
+  }
+
+  /* ===== 인쇄/PDF 시에는 종이 외곽 효과 제거 ===== */
+  @media print {
+    body {
+      background: #fff;
+    }
+    .paper {
+      width: auto;
+      min-height: auto;
+      margin: 0;
+      padding: 0;          /* ✅ 인쇄 여백은 @page margin이 담당 */
+      box-shadow: none;
+      overflow: visible;
+    }
+
+    /* 크롬에서 배경색이 필요하면(표 헤더 등) 이 옵션도 고려:
+       인쇄 대화상자에서 “배경 그래픽” 체크가 필요할 수 있음 */
+  }
+
+  /* ===== 아래는 기존 스타일 유지/추가 ===== */
+
+  .title { text-align: center; font-size: 40px; font-weight: 900; letter-spacing: 6px; margin: 4mm 0 4mm; }
+  .box { border: 1px solid #000; padding: 6px 8px; }
+  table { border-collapse: collapse; width: 100%; }
+  td { padding: 2px 4px; vertical-align: top; }
+
+  table.items { width: 100%; border-collapse: collapse; margin-top: 6mm; }
+  table.items th, table.items td { border: 1px solid #000; padding: 4px 6px; }
+  table.items th { background: #f5f5f5; text-align: center; }
+
+  .t-right { text-align: right; }
+  .t-center { text-align: center; }
+
+  .sum { width: 240px; margin-left: auto; margin-top: 6mm; }
+  .sum td { border: 1px solid #000; padding: 4px 6px; }
+
+  .muted { color: #333; }
+
+.supplier-grid { width:100%; border-collapse: collapse; }
+.supplier-grid th, .supplier-grid td { border:1px solid #000; padding:6px; }
+.supplier-grid .right { text-align:right; }
+
+.info-row { display: flex; gap: 6px; width: 100%; align-items: stretch; }
+.info-card { flex: 1 1 0; }
+.recipient-grid { width: 100%; border-collapse: collapse; height: 100%; text-align: center; }
+.recipient-grid th, .recipient-grid td { border: 1px solid #000; padding: 6px; }
+.recipient-grid tr + tr th, .recipient-grid tr + tr td { border-top-color: transparent; }
+.recipient-grid tr:not(:last-child) th, .recipient-grid tr:not(:last-child) td { border-bottom-color: transparent; }
+#q-rec-company { font-weight: 700; font-size: 25px; padding: 6px 0; }
+.top-row { display: flex; justify-content: flex-end; margin: 2mm 0 2mm; }
+.quote-no-box { border: 0px ; padding: 4px 8px; min-width: 40mm; }
+.quote-no-box .label { display: inline-block; width: 20px; }
+
+
+
+</style>
+
+
+  <script>
+    // Apps Script 템플릿에서 주입된 데이터를 사용합니다.
+  </script>
+
+
+</head>
+
+<body>
+  <div class="paper">
+    
+    <!-- 상단 정보 -->
+    <div class="top-row">
+      <div class="quote-no-box" aria-label="견적번호">
+        <span class="label">NO.</span>
+        <span id="q-no"></span>
+      </div>
+    </div>
+    <div class="title">견 적 서</div>
+    
+    <!-- 공급받는자 / 공급자 정보 -->
+    <div class="info-row" aria-label="공급받는자 및 공급자 정보">
+      <div class="info-card">
+        <table class="recipient-grid" aria-label="공급받는자 정보">
+          
+          <tr>
+            <td id="q-rec-company"></td>
+          </tr>
+          <tr>
+            <td id="q-rec-person"></td>
+          </tr>
+          <tr>
+            <td id="q-rec-date"></td>
+          </tr>
+          <tr>
+            <td colspan="2" class="t-center">아래와 같이 견적합니다</td>
+          </tr>
+        </table>
+      </div>
+
+      <!-- 공급자 정보 박스 (고정) -->
+      <div class="supplier-card info-card">
+        <table class="supplier-grid" aria-label="공급자 정보">
+
+  <tr class="header">
+    <td>등록번호</td><td colspan="3" id="s-reg"></td>
+  </tr>
+  <tr>
+    <td>상 호</td><td id="s-company"></td>
+    <td>대표자명</td><td id="s-ceo"></td>
+  </tr>
+  <tr>
+    <td>사업장주소</td><td colspan="3" id="s-address"></td>
+  </tr>
+  <tr>
+    <td>업 태</td><td id="s-biz-type"></td>
+    <td>종 목</td><td id="s-biz-item"></td>
+  </tr>
+  <tr>
+    <td>연 락 처</td><td colspan="3" id="s-contact"></td>
+  </tr>
+</table>
+      </div>
+    </div>
+
+
+    <!-- 품목 테이블 -->
+    <table class="items">
+      <thead>
+        <tr>
+          <th>품 명</th>
+          <th>규 격</th>
+          <th>수량</th>
+          <th>단 가</th>
+          <th>금 액</th>
+          <th>비 고</th>
+        </tr>
+      </thead>
+      <tbody id="items-body"></tbody>
+    </table>
+
+    <!-- 합계 -->
+    <div class="sum">
+      <table>
+        <tr><td>공급가액</td><td class="t-right" id="sum-supply"></td></tr>
+        <tr><td>부 가 세</td><td class="t-right" id="sum-vat"></td></tr>
+        <tr><td><b>합 계</b></td><td class="t-right" id="sum-total"></td></tr>
+      </table>
+    </div>
+
+  </div>
+
+  <!-- 🔁 품목 행 템플릿 -->
+  <template id="item-row-template">
+    <tr>
+          <td class="name"></td>
+          <td class="spec"></td>
+          <td class="t-center qty"></td>
+          <td class="t-right unit"></td>
+          <td class="t-right amount"></td>
+          <td class="note"></td>
+    </tr>
+</template>
+          
+  <script>
+const data = <?!= JSON.stringify(data) ?>;
+
+const won = n => "₩" + Number(n).toLocaleString("ko-KR");
+const dotDate = s => {
+  const d = new Date(s);
+  if (Number.isNaN(d.getTime())) return s;
+  return `${d.getFullYear()}. ${d.getMonth() + 1}. ${d.getDate()}.`;
+};
+
+document.getElementById("q-no").textContent = data.header.NO;
+document.getElementById("q-rec-date").textContent = dotDate(data.header.견적일);
+document.getElementById("q-rec-company").textContent = data.header.공상호;
+document.getElementById("q-rec-person").textContent = data.header.수신처 + " 귀하";
+
+document.getElementById("s-reg").textContent = data.supplier.regNo || "";
+document.getElementById("s-company").textContent = data.supplier.company || "";
+document.getElementById("s-ceo").textContent = data.supplier.ceo || "";
+document.getElementById("s-address").textContent = data.supplier.address || "";
+document.getElementById("s-biz-type").textContent = data.supplier.bizType || "";
+document.getElementById("s-biz-item").textContent = data.supplier.bizItem || "";
+document.getElementById("s-contact").textContent = data.supplier.contact || "";
+
+document.getElementById("sum-supply").textContent = won(data.supply);
+document.getElementById("sum-vat").textContent = won(data.vat);
+document.getElementById("sum-total").textContent = won(data.total);
+
+const tbody = document.getElementById("items-body");
+const tpl = document.getElementById("item-row-template");
+
+data.items.forEach(it => {
+  const row = tpl.content.cloneNode(true);
+  row.querySelector(".name").textContent = it.name;
+  row.querySelector(".spec").textContent = it.spec;
+  row.querySelector(".qty").textContent = it.qty;
+  row.querySelector(".unit").textContent = won(it.unit);
+  row.querySelector(".amount").textContent = won(it.amount);
+  row.querySelector(".note").textContent = it.note || "";
+  tbody.appendChild(row);
+});
+
+
+</script>
+
+
+</body>
+
+
+</html>

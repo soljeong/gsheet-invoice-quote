@@ -1,3 +1,11 @@
+/**
+ * @OnlyCurrentDoc
+ */
+
+// ==========================================
+// 1. 메뉴 및 메인 진입점
+// ==========================================
+
 function onOpen() {
   SpreadsheetApp.getUi()
     .createMenu('견적서')
@@ -5,148 +13,153 @@ function onOpen() {
     .addToUi();
 }
 
-let LAST_PREVIEW_DATA = null;
-
+/**
+ * 선택된 셀의 견적번호를 기반으로 견적서 PDF를 생성합니다.
+ */
 function generateQuotePdfFromSelection() {
   const ss = SpreadsheetApp.getActive();
-  const sh = ss.getActiveSheet(); // '견적서' 시트에서 실행한다고 가정 (원하면 이름 고정 가능)
-  const settings = getSettings_(ss);
+  const sh = ss.getActiveSheet();
 
-  const range = ss.getActiveRange();
+  try {
+    // 1. 설정 로드
+    const settings = getSettings_(ss);
+
+    // 2. 현재 선택된 견적번호 추출
+    const quoteNo = getSelectedQuoteNo_(sh);
+
+    // 3. 견적 데이터 수집 및 정렬
+    const quoteData = getQuoteData_(sh, quoteNo);
+
+    // 4. 데이터 병합 (헤더 + 아이템 + 계산 + 공급자 정보)
+    const data = buildRenderData_(quoteData, settings.supplier);
+
+    // 5. PDF 생성 및 저장
+    const pdfFile = createPdf_(data, quoteNo);
+
+    // 6. 결과 모달 표시
+    showLinkModal_(pdfFile.getUrl());
+
+  } catch (e) {
+    SpreadsheetApp.getUi().alert(`오류 발생: ${e.message}`);
+    console.error(e.stack);
+  }
+}
+
+// ==========================================
+// 2. 데이터 처리 로직
+// ==========================================
+
+function getSelectedQuoteNo_(sheet) {
+  const range = sheet.getActiveRange();
   if (!range) throw new Error('선택된 셀이 없습니다.');
 
-  // 1) 헤더 & 데이터 읽기
-  const all = sh.getDataRange().getValues();
-  if (all.length < 2) throw new Error('데이터가 없습니다.');
+  // 헤더 체크
+  const headers = sheet.getDataRange().getValues()[0].map(h => String(h).trim());
+  const cQuoteNo = headers.indexOf('견적번호');
 
-  const headers = all[0].map(h => String(h).trim());
-  const col = (name) => headers.indexOf(name);
+  if (cQuoteNo === -1) throw new Error('"견적번호" 열을 찾을 수 없습니다.');
 
-  const cQuoteNo = col('견적번호');
-  const cDate    = col('견적일');
-  const cCompany = col('업체명');
-  const cTo      = col('수신자');
-  const cItem    = col('품명');
-  const cSpec    = col('규격');
-  const cQty     = col('수량');
-  const cUnit    = col('단가');
-  const cNote    = col('비고');
+  // 선택된 행의 견적번호 가져오기
+  const userRowIndex = range.getRow(); // 1-based
+  if (userRowIndex < 2) throw new Error('데이터 행을 선택해주세요 (헤더 제외).');
 
-  const must = [cQuoteNo, cDate, cCompany, cTo, cItem, cSpec, cQty, cUnit, cNote];
-  if (must.some(i => i < 0)) {
-    throw new Error('헤더가 정확히 있어야 합니다: 견적번호, 견적일, 업체명, 수신자, 품명, 규격, 수량, 단가, 비고');
-  }
+  const val = sheet.getRange(userRowIndex, cQuoteNo + 1).getValue();
+  const quoteNo = String(val || '').trim();
 
-  // 2) 선택된 셀에서 견적번호 가져오기
-  // - 선택한 셀이 '견적번호' 열이면 그대로 사용
-  // - 아니면 선택한 행의 '견적번호' 값을 사용
-  const r = range.getRow();
-  if (r < 2) throw new Error('헤더(1행)가 아닌 데이터 행을 선택하세요.');
+  if (!quoteNo) throw new Error('선택된 행에 견적번호가 비어있습니다.');
+  return quoteNo;
+}
 
-  const selectedQuoteNo = (() => {
-    const selectedCol = range.getColumn();
-    if (selectedCol === cQuoteNo + 1) return sh.getRange(r, selectedCol).getValue();
-    return sh.getRange(r, cQuoteNo + 1).getValue();
-  })();
+function getQuoteData_(sheet, quoteNo) {
+  const allValues = sheet.getDataRange().getValues();
+  if (allValues.length < 2) throw new Error('데이터가 없습니다.');
 
-  const quoteNo = String(selectedQuoteNo || '').trim();
-  if (!quoteNo) throw new Error('선택된 행에서 견적번호를 찾지 못했습니다. (견적번호 셀이 비어있음)');
-
-  // 3) 같은 견적번호인 행들만 모으기
-  const rows = all.slice(1).filter(row => String(row[cQuoteNo] || '').trim() === quoteNo);
-  if (rows.length === 0) throw new Error(`견적번호 "${quoteNo}"에 해당하는 행이 없습니다.`);
-
-  // 4) 헤더 정보(첫 행 기준)
-  const first = rows[0];
-  const header = {
-    NO: quoteNo,
-    견적일: first[cDate],
-    공상호: first[cCompany],   // 업체명 -> 공상호(양식 표기용)
-    수신처: first[cTo],         // 수신자 -> 수신처(양식 표기용)
+  const headers = allValues[0].map(h => String(h).trim());
+  const col = (name) => {
+    const idx = headers.indexOf(name);
+    if (idx === -1) throw new Error(`필수 열 "${name}"이(가) 없습니다.`);
+    return idx;
   };
 
-  // 5) 품목 리스트 (품명 기준 정렬)
-  const rowsSorted = rows.slice().sort((a, b) => {
-    const aName = String(a[cItem] || '').trim();
-    const bName = String(b[cItem] || '').trim();
-    return aName.localeCompare(bName, 'ko');
+  // 컬럼 매핑
+  const C = {
+    NO: col('견적번호'),
+    DATE: col('견적일'),
+    COMPANY: col('업체명'),
+    TO: col('수신자'),
+    ITEM: col('품명'),
+    SPEC: col('규격'),
+    QTY: col('수량'),
+    UNIT: col('단가'),
+    NOTE: col('비고')
+  };
+
+  // 해당 견적번호 행 필터링
+  const rows = allValues.slice(1).filter(r => String(r[C.NO] || '').trim() === quoteNo);
+
+  if (rows.length === 0) throw new Error(`견적번호 "${quoteNo}"에 해당하는 데이터가 없습니다.`);
+
+  // 품명 기준 정렬 (가나다순)
+  rows.sort((a, b) => {
+    const nameA = String(a[C.ITEM] || '').trim();
+    const nameB = String(b[C.ITEM] || '').trim();
+    return nameA.localeCompare(nameB, 'ko');
   });
 
-  const items = rowsSorted.map(row => {
-    const qty = Number(row[cQty] || 0);
-    const unit = Number(row[cUnit] || 0);
+  return { rows, C, firstRow: rows[0] };
+}
+
+function buildRenderData_({ rows, C, firstRow }, supplier) {
+  // 헤더 정보
+  const header = {
+    NO: String(firstRow[C.NO]),
+    견적일: firstRow[C.DATE],
+    공상호: firstRow[C.COMPANY],
+    수신처: firstRow[C.TO]
+  };
+
+  // 품목 리스트
+  const items = rows.map(r => {
+    const qty = Number(r[C.QTY] || 0);
+    const unit = Number(r[C.UNIT] || 0);
     return {
-      name: row[cItem] || '',
-      spec: row[cSpec] || '',
+      name: String(r[C.ITEM] || ''),
+      spec: String(r[C.SPEC] || ''),
       qty,
       unit,
       amount: qty * unit,
-      note: row[cNote] || ''
+      note: String(r[C.NOTE] || '')
     };
   });
 
-  // (선택) 합계/부가세
-  const supply = items.reduce((sum, it) => sum + it.amount, 0);
-  const vat = Math.round(supply * 0.1);
+  // 합계 계산
+  const supply = items.reduce((sum, item) => sum + item.amount, 0);
+  const vat = Math.floor(supply * 0.1); // 부가세: 절사 or 반올림 정책에 따라 조정 (여기선 내림/절사 예시)
   const total = supply + vat;
-  
-  // 6) HTML → PDF 생성
-  const tpl = HtmlService.createTemplateFromFile('template');
-  const previewData = { header, items, supply, vat, total, supplier: settings.supplier };
-  tpl.data = previewData;
 
-  const htmlOutput = tpl.evaluate()
-    .setSandboxMode(HtmlService.SandboxMode.IFRAME)
-    .setWidth(1200)
-    .setHeight(900);
-
-  // SpreadsheetApp.getUi().showModalDialog(htmlOutput, '견적서 미리보기');
-  // LAST_PREVIEW_DATA = previewData;
-
-  // PDF 생성 및 저장 (루트/견적서 폴더, 견적번호 파일명)
-  const pdfBlob = htmlOutput.getBlob().getAs(MimeType.PDF).setName(`${quoteNo}.pdf`);
-  const folder = getOrCreateSubfolder_(DriveApp.getRootFolder(), '견적서');
-  const file = overwriteFileInFolder_(folder, pdfBlob);
-
-  const linkTpl = HtmlService.createTemplateFromFile('pdf-link');
-  linkTpl.pdfUrl = file.getUrl();
-  const linkModal = linkTpl.evaluate()
-    .setSandboxMode(HtmlService.SandboxMode.IFRAME)
-    .setWidth(420)
-    .setHeight(160);
-  SpreadsheetApp.getUi().showModalDialog(linkModal, 'PDF 링크');
-}
-
-function openLastPreview_() {
-  if (!LAST_PREVIEW_DATA) {
-    SpreadsheetApp.getUi().alert('미리보기 데이터가 없습니다.');
-    return;
-  }
-  const tpl = HtmlService.createTemplateFromFile('template');
-  tpl.data = LAST_PREVIEW_DATA;
-  const htmlOutput = tpl.evaluate()
-    .setSandboxMode(HtmlService.SandboxMode.IFRAME)
-    .setWidth(1200)
-    .setHeight(900);
-  SpreadsheetApp.getUi().showModalDialog(htmlOutput, '견적서 미리보기');
+  return {
+    header,
+    items,
+    supply,
+    vat,
+    total,
+    supplier
+  };
 }
 
 function getSettings_(ss) {
   const sheet = ss.getSheetByName('설정');
-  if (!sheet) {
-    throw new Error('설정 시트를 찾을 수 없습니다. (시트명: "설정")');
-  }
+  if (!sheet) throw new Error('"설정" 시트가 필요합니다.');
 
-  const rows = sheet.getDataRange().getValues();
+  const data = sheet.getDataRange().getValues();
   const map = {};
 
-  rows.forEach((row, i) => {
+  data.forEach(row => {
     const key = String(row[0] || '').trim();
-    const value = row[1];
-    if (!key || key === '키') return;
-    map[key] = value;
+    if (key) map[key] = row[1];
   });
 
+  // 필수값 체크 생략(없으면 빈값)
   return {
     supplier: {
       company: map['공급자_상호'] || '',
@@ -162,9 +175,27 @@ function getSettings_(ss) {
   };
 }
 
+// ==========================================
+// 3. PDF 생성 및 Drive 저장
+// ==========================================
+
+function createPdf_(data, quoteNo) {
+  const template = HtmlService.createTemplateFromFile('template');
+  template.data = data;
+
+  const htmlOutput = template.evaluate();
+
+  // HTML을 PDF Blob으로 변환
+  const pdfBlob = htmlOutput.getBlob().getAs(MimeType.PDF).setName(`${quoteNo}.pdf`);
+
+  // 폴더 지정 및 저장 (덮어쓰기 로직 포함)
+  const folder = getOrCreateSubfolder_(DriveApp.getRootFolder(), '견적서');
+  return overwriteFileInFolder_(folder, pdfBlob);
+}
+
 function getOrCreateSubfolder_(parent, name) {
-  const it = parent.getFoldersByName(name);
-  if (it.hasNext()) return it.next();
+  const iterator = parent.getFoldersByName(name);
+  if (iterator.hasNext()) return iterator.next();
   return parent.createFolder(name);
 }
 
@@ -172,7 +203,23 @@ function overwriteFileInFolder_(folder, blob) {
   const name = blob.getName();
   const files = folder.getFilesByName(name);
   while (files.hasNext()) {
-    files.next().setTrashed(true);
+    files.next().setTrashed(true); // 기존 파일 휴지통으로 이동
   }
   return folder.createFile(blob);
+}
+
+// ==========================================
+// 4. UI 및 유틸
+// ==========================================
+
+function showLinkModal_(url) {
+  const tpl = HtmlService.createTemplateFromFile('pdf-link');
+  tpl.pdfUrl = url;
+
+  const html = tpl.evaluate()
+    .setSandboxMode(HtmlService.SandboxMode.IFRAME)
+    .setWidth(400)
+    .setHeight(150);
+
+  SpreadsheetApp.getUi().showModalDialog(html, 'PDF 생성 완료');
 }

@@ -147,28 +147,43 @@ function buildRenderData_({ rows, C, firstRow }, supplier) {
     수신처: firstRow[C.TO]
   };
 
-  // 품목 리스트
-  const items = rows.map(r => {
+  // 품목 리스트 (할인 행은 별도 처리)
+  const items = [];
+  let discountAmount = 0;
+  let hasDiscount = false;
+
+  rows.forEach(r => {
     const qty = Number(r[C.QTY] || 0);
     const unit = Number(r[C.UNIT] || 0);
-    return {
-      name: String(r[C.ITEM] || ''),
+    const name = String(r[C.ITEM] || '').trim();
+    const item = {
+      name,
       spec: String(r[C.SPEC] || ''),
       qty,
       unit,
       amount: qty * unit,
       note: String(r[C.NOTE] || '')
     };
+
+    if (name === '할인') {
+      hasDiscount = true;
+      discountAmount += item.amount;
+      return;
+    }
+
+    items.push(item);
   });
 
-  // 합계 계산
-  const supply = items.reduce((sum, item) => sum + item.amount, 0);
+  // 합계 계산 (할인 금액을 VAT 계산 전에 반영)
+  const supply = items.reduce((sum, item) => sum + item.amount, 0) + discountAmount;
   const vat = Math.floor(supply * 0.1); // 부가세: 절사 or 반올림 정책에 따라 조정 (여기선 내림/절사 예시)
   const total = supply + vat;
 
   return {
     header,
     items,
+    discountAmount,
+    hasDiscount,
     supply,
     vat,
     total,

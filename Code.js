@@ -18,17 +18,26 @@ function onOpen() {
  */
 function generateQuotePdfFromSelection() {
   const ss = SpreadsheetApp.getActive();
-  const sh = ss.getActiveSheet();
+  // 견적서 시트에서만 동작하도록 제한 (또는 활성 시트가 견적서라고 가정)
+  const sheet = ss.getSheetByName('견적서');
+  if (!sheet) {
+    SpreadsheetApp.getUi().alert('"견적서" 시트를 찾을 수 없습니다.');
+    return;
+  }
 
   try {
     // 1. 설정 로드
     const settings = getSettings_(ss);
 
-    // 2. 현재 선택된 견적번호 추출
-    const quoteNo = getSelectedQuoteNo_(sh);
+    // 2. 현재 선택된 견적번호 추출 (활성 시트 기준)
+    const activeSheet = ss.getActiveSheet();
+    if (activeSheet.getName() !== '견적서') {
+      throw new Error('"견적서" 시트에서 실행해 주세요.');
+    }
+    const quoteNo = getSelectedQuoteNo_(activeSheet);
 
-    // 3. 견적 데이터 수집 및 정렬
-    const quoteData = getQuoteData_(sh, quoteNo);
+    // 3. 견적 데이터 수집 (3개 테이블 조인)
+    const quoteData = getQuoteData_(ss, quoteNo);
 
     // 4. 데이터 병합 (헤더 + 아이템 + 계산 + 공급자 정보)
     const data = buildRenderData_(quoteData, settings.supplier);
@@ -70,75 +79,117 @@ function getSelectedQuoteNo_(sheet) {
   return quoteNo;
 }
 
-function getQuoteData_(sheet, quoteNo) {
-  const allValues = sheet.getDataRange().getValues();
-  if (allValues.length < 2) throw new Error('데이터가 없습니다.');
+function getQuoteData_(ss, quoteNo) {
+  // 1. 시트 가져오기
+  const shQuote = ss.getSheetByName('견적서');
+  const shItem = ss.getSheetByName('견적품목');
+  const shProcess = ss.getSheetByName('견적공정');
 
-  const headers = allValues[0].map(h => String(h).trim());
-  const col = (name) => {
-    const idx = headers.indexOf(name);
-    if (idx === -1) throw new Error(`필수 열 "${name}"이(가) 없습니다.`);
-    return idx;
+  if (!shQuote || !shItem || !shProcess) {
+    throw new Error('필수 시트(견적서, 견적품목, 견적공정)가 누락되었습니다.');
+  }
+
+  // 2. 헬퍼 함수: 시트 데이터 읽기 및 헤더 매핑
+  const readSheet = (sheet) => {
+    const values = sheet.getDataRange().getValues();
+    if (values.length < 2) return [];
+    const headers = values[0].map(h => String(h).trim());
+    return values.slice(1).map(row => {
+      const obj = {};
+      headers.forEach((h, i) => obj[h] = row[i]);
+      return obj;
+    });
   };
 
-  // 컬럼 매핑
-  const C = {
-    NO: col('견적번호'),
-    DATE: col('견적일'),
-    COMPANY: col('업체명'),
-    TO: col('수신자'),
-    ITEM: col('품명'),
-    SPEC: col('규격'),
-    QTY: col('수량'),
-    UNIT: col('단가'),
-    NOTE: col('비고')
+  const quotes = readSheet(shQuote);
+  const items = readSheet(shItem);
+  const processes = readSheet(shProcess);
+
+  // 3. 견적서(Quote) 찾기
+  // 컬럼 매핑: 견적번호, 등록일(->견적일), 고객사(->업체명), 고객사담당자(->수신자)
+  const quoteRow = quotes.find(r => String(r['견적번호'] || '').trim() === quoteNo);
+  if (!quoteRow) throw new Error(`견적번호 "${quoteNo}"에 해당하는 견적서 데이터가 없습니다.`);
+
+  const header = {
+    NO: String(quoteRow['견적번호'] || ''),
+    DATE: quoteRow['등록일'],      // AppSheet 컬럼명 '등록일'
+    COMPANY: quoteRow['고객사'],   // AppSheet 컬럼명 '고객사'
+    TO: quoteRow['고객사담당자']   // AppSheet 컬럼명 '고객사담당자'
   };
 
-  // 해당 견적번호 행 필터링
-  const rows = allValues.slice(1).filter(r => String(r[C.NO] || '').trim() === quoteNo);
+  // 4. 견적품목(Item) 필터링 & 매핑
+  // "견적번호" 컬럼으로 필터링
+  const relatedItems = items.filter(r => String(r['견적번호'] || '').trim() === quoteNo);
 
-  if (rows.length === 0) throw new Error(`견적번호 "${quoteNo}"에 해당하는 데이터가 없습니다.`);
+  // 품목ID -> { 품명, 규격 } 맵 생성
+  const itemMap = {};
+  relatedItems.forEach(r => {
+    const id = r['품목ID']; // AppSheet Key
+    if (id) {
+      itemMap[id] = {
+        name: String(r['품명'] || ''),
+        spec: String(r['견적설명'] || '') // '규격' 대신 '견적설명' 사용
+      };
+    }
+  });
 
-  // 품명 기준 정렬 (가나다순)
-  rows.sort((a, b) => {
-    const nameA = String(a[C.ITEM] || '').trim();
-    const nameB = String(b[C.ITEM] || '').trim();
+  // 5. 견적공정(Process) 필터링 및 조인
+  // 품목ID가 위에서 찾은 relatedItems에 포함되는 공정만 필터링
+  const joinedItems = [];
+
+  // 공정 데이터 순회
+  processes.forEach(p => {
+    const itemId = p['품목ID'];
+    const parentItem = itemMap[itemId];
+
+    if (parentItem) {
+      // 데이터 결합
+      const processName = String(p['공정'] || '');
+      const qty = Number(p['수량'] || 0);
+      const unit = Number(p['단가'] || 0);
+      const note = String(p['비고'] || '');
+
+      joinedItems.push({
+        name: `${parentItem.name} ${processName}`, // 품명 + 공정명
+        spec: parentItem.spec,
+        qty: qty,
+        unit: unit,
+        amount: qty * unit, // 단순 계산
+        note: note,
+        originalItemName: parentItem.name // 정렬용
+      });
+    }
+  });
+
+  if (joinedItems.length === 0) {
+    throw new Error(`견적번호 "${quoteNo}"에 해당하는 공정 데이터(상세 품목)가 없습니다.`);
+  }
+
+  // 6. 정렬: 품명 가나다순 -> 공정명 순? (일단 품명 기준으로 정렬)
+  joinedItems.sort((a, b) => {
+    const nameA = a.originalItemName;
+    const nameB = b.originalItemName;
     return nameA.localeCompare(nameB, 'ko');
   });
 
-  return { rows, C, firstRow: rows[0] };
+  return { header, items: joinedItems };
 }
 
-function buildRenderData_({ rows, C, firstRow }, supplier) {
-  // 헤더 정보
-  const header = {
-    NO: String(firstRow[C.NO]),
-    견적일: firstRow[C.DATE],
-    공상호: firstRow[C.COMPANY],
-    수신처: firstRow[C.TO]
-  };
-
-  // 품목 리스트
-  const items = rows.map(r => {
-    const qty = Number(r[C.QTY] || 0);
-    const unit = Number(r[C.UNIT] || 0);
-    return {
-      name: String(r[C.ITEM] || ''),
-      spec: String(r[C.SPEC] || ''),
-      qty,
-      unit,
-      amount: qty * unit,
-      note: String(r[C.NOTE] || '')
-    };
-  });
+function buildRenderData_({ header, items }, supplier) {
+  // 이미 items는 getQuoteData_에서 계산되어 넘어옴
 
   // 합계 계산
   const supply = items.reduce((sum, item) => sum + item.amount, 0);
-  const vat = Math.floor(supply * 0.1); // 부가세: 절사 or 반올림 정책에 따라 조정 (여기선 내림/절사 예시)
+  const vat = Math.floor(supply * 0.1);
   const total = supply + vat;
 
   return {
-    header,
+    header: {
+      NO: header.NO,
+      견적일: header.DATE,
+      공상호: header.COMPANY,
+      수신처: header.TO
+    },
     items,
     supply,
     vat,
@@ -148,8 +199,13 @@ function buildRenderData_({ rows, C, firstRow }, supplier) {
 }
 
 function getSettings_(ss) {
-  const sheet = ss.getSheetByName('설정');
-  if (!sheet) throw new Error('"설정" 시트가 필요합니다.');
+  const sheet = ss.getSheetByName('설정'); // 설정 시트는 그대로 유지된다고 가정 (또는 _Per User Settings 확인 필요하지만 기존 사용)
+  // 기존 코드 유지
+  if (!sheet) {
+    // 설정 시트가 없으면 빈 값 반환하거나 에러 처리.
+    // 여기서는 에러 없이 빈 객체 반환하도록 수정 (안전장치)
+    return { supplier: {} };
+  }
 
   const data = sheet.getDataRange().getValues();
   const map = {};
@@ -159,7 +215,6 @@ function getSettings_(ss) {
     if (key) map[key] = row[1];
   });
 
-  // 필수값 체크 생략(없으면 빈값)
   return {
     supplier: {
       company: map['공급자_상호'] || '',

@@ -9,7 +9,8 @@
 function onOpen() {
   SpreadsheetApp.getUi()
     .createMenu('견적서')
-    .addItem('선택 견적번호로 PDF 생성', 'generateQuotePdfFromSelection')
+    .addItem('PDF 저장', 'generateQuotePdfFromSelection')
+    .addItem('미리보기', 'showPreview')
     .addToUi();
 }
 
@@ -39,6 +40,34 @@ function generateQuotePdfFromSelection() {
     // 6. 결과 모달 표시
     showLinkModal_(pdfFile.getUrl());
 
+  } catch (e) {
+    SpreadsheetApp.getUi().alert(`오류 발생: ${e.message}`);
+    console.error(e.stack);
+  }
+}
+
+/**
+ * 선택된 셀의 견적번호를 기준으로 템플릿만 미리보기합니다.
+ */
+function showPreview() {
+  const ss = SpreadsheetApp.getActive();
+  const sh = ss.getActiveSheet();
+
+  try {
+    const settings = getSettings_(ss);
+    const quoteNo = getSelectedQuoteNo_(sh);
+    const quoteData = getQuoteData_(sh, quoteNo);
+    const data = buildRenderData_(quoteData, settings.supplier);
+
+    const template = HtmlService.createTemplateFromFile('template');
+    template.data = data;
+
+    const htmlOutput = template.evaluate()
+      .setSandboxMode(HtmlService.SandboxMode.IFRAME)
+      .setWidth(1200)
+      .setHeight(900);
+
+    SpreadsheetApp.getUi().showModalDialog(htmlOutput, '견적서 미리보기');
   } catch (e) {
     SpreadsheetApp.getUi().alert(`오류 발생: ${e.message}`);
     console.error(e.stack);

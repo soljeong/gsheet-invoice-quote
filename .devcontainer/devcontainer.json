@@ -13,12 +13,13 @@
 
 	// Use 'postCreateCommand' to run commands after the container is created.
 	// "postCreateCommand": "yarn install",
-	"postCreateCommand": "npm install -g @google/clasp",
+	"postCreateCommand": "npm install -g @google/clasp && curl -fsSL https://d2lang.com/install.sh | sh -s --",
 
 	"customizations": {
 		"vscode": {
 			"extensions": [
-				"openai.chatgpt"
+				"openai.chatgpt",
+				"terrastruct.d2"
 			]
 		}
 	}

@@ -189,6 +189,7 @@
     <div class="sum">
       <table>
         <tr><td>공급가액</td><td class="t-right" id="sum-supply"></td></tr>
+        <tr id="sum-discount-row"><td>할 인</td><td class="t-right" id="sum-discount"></td></tr>
         <tr><td>부 가 세</td><td class="t-right" id="sum-vat"></td></tr>
         <tr><td><b>합 계</b></td><td class="t-right" id="sum-total"></td></tr>
       </table>
@@ -235,6 +236,12 @@ document.getElementById("s-contact").textContent = data.supplier.contact || "";
 document.getElementById("sum-supply").textContent = won(data.supply);
 document.getElementById("sum-vat").textContent = won(data.vat);
 document.getElementById("sum-total").textContent = won(data.total);
+const discountRow = document.getElementById("sum-discount-row");
+if (data.hasDiscount) {
+  document.getElementById("sum-discount").textContent = won(data.discountAmount);
+} else if (discountRow) {
+  discountRow.style.display = "none";
+}
 
 const tbody = document.getElementById("items-body");
 const tpl = document.getElementById("item-row-template");
@@ -243,7 +250,9 @@ let lastName = null;
 let lastNameCell = null;
 let lastRowSpan = 1;
 
-data.items.forEach(it => {
+const renderItems = data.items.filter(it => it.name !== "할인");
+
+renderItems.forEach(it => {
   const row = tpl.content.cloneNode(true);
   const nameCell = row.querySelector(".name");
 

@@ -19,13 +19,13 @@ if (typeof window !== "undefined") {
   items: [
     { name: "서비스 A", spec: "월간", qty: 1, unit: 150000, amount: 150000, note: "" },
     { name: "서비스 B", spec: "연간", qty: 1, unit: 350000, amount: 350000, note: "프로모션" },
-    { name: "서비스 B", spec: "연간2", qty: 1, unit: 350000, amount: 350000, note: "프로모션" }, 
-    { name: "서비스 B", spec: "연간2", qty: 1, unit: 350000, amount: 350000, note: "프로모션" }, 
-    { name: "서비스 B", spec: "연간2", qty: 1, unit: 350000, amount: 350000, note: "프로모션" }, 
-    { name: "설치비", spec: "1회", qty: 1, unit: 50000, amount: 50000, note: "" }
+    { name: "설치비", spec: "1회", qty: 1, unit: 50000, amount: 50000, note: "" },
+    { name: "할인", spec: "", qty: 1, unit: -50000, amount: -50000, note: "프로모션 할인" }
   ],
-  supply: 550000,
-  vat: 55000,
-  total: 605000
+  hasDiscount: true,
+  discountAmount: -50000,
+  supply: 500000,
+  vat: 50000,
+  total: 550000
   };
 }

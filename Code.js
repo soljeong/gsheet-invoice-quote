@@ -115,14 +115,14 @@ function getQuoteData_(sheet, quoteNo) {
     NO: col('견적번호'),
     DATE: col('견적일'),
     COMPANY: col('업체명'),
-    TO: col('수신자'),
+    TO: col('담당자'),
     ITEM: col('품명'),
-    SPEC: col('규격'),
+    SPEC: col('공정'),
     QTY: col('수량'),
     UNIT: col('단가'),
     NOTE: col('비고')
   };
-
+   
   // 해당 견적번호 행 필터링
   const rows = allValues.slice(1).filter(r => String(r[C.NO] || '').trim() === quoteNo);
 

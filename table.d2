@@ -1,0 +1,53 @@
+견적서: {
+  shape: sql_table
+  "_RowNumber": "Number"
+  "견적번호": "Text"  {constraint: [primary_key; unique] }
+  "등록일": "Date"
+  "고객사": "Text"
+  "고객사담당자": "Text"
+  "할인": "Price"
+  "메모": "LongText"
+}
+
+
+
+견적품목: {
+  shape: sql_table
+  "_RowNumber": "Number"
+  "견적번호": "Ref (FK -> 견적서.견적번호)" {constraint: foreign_key}
+  "품목ID": "Text (PK)" {constraint: [primary_key; unique] }
+  "품명": "Text"
+  "견적설명": "Text"
+}
+
+견적공정: {
+  shape: sql_table
+  "_RowNumber": "Number"
+  "품목ID": "Ref (FK -> 견적품목.품목ID)" {constraint: foreign_key}
+  "공정ID": "Text (PK)" {constraint: [primary_key; unique] }
+  "공정": "Enum"
+  "수량": "Number"
+  "단가": "Price"
+  "금액": "Price"
+  "금액입력": "Price"
+  "비고": "Text"
+}
+
+이미지: {
+  shape: sql_table
+  "_RowNumber": "Number (PK)" {constraint: primary_key}
+  "품목ID": "Ref (FK -> 견적품목.품목ID)" {constraint: foreign_key}
+  "이미지": "Image"
+}
+
+파일: {
+  shape: sql_table
+  "_RowNumber": "Number (PK)" {constraint: primary_key}
+  "견적번호": "Ref (FK -> 견적서.견적번호)" {constraint: foreign_key}
+  "파일": "File"
+}
+
+견적서.견적번호 -> 견적품목.견적번호: "1:N"
+견적서.견적번호 -> 파일.견적번호: "1:N"
+견적품목.품목ID -> 견적공정.품목ID: "1:N"
+견적품목.품목ID -> 이미지.품목ID: "1:N"

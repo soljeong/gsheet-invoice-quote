@@ -60,3 +60,4 @@ Google Sheets 데이터를 기반으로 깔끔한 견적서 PDF를 생성하고 
 > **주의**: `template.html`의 `<!-- SYNC:BODY:START -->` 등 싱크 마커를 지우면 동기화 스크립트가 작동하지 않습니다.
 
 
+![ERD](table.svg)

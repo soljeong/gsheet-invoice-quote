@@ -76,6 +76,8 @@
   .t-right { text-align: right; }
   .t-center { text-align: center; }
 
+  #note-content { margin-top: 6mm; margin-bottom: 4mm; font-size: 11px; line-height: 1.6; }
+
   .sum { width: 240px; margin-left: auto; margin-top: 6mm; }
   .sum td { border: 1px solid #000; padding: 4px 6px; }
 
@@ -87,6 +89,8 @@
 
   .info-row { display: flex; gap: 6px; width: 100%; align-items: stretch; }
   .info-card { flex: 1 1 0; }
+  .supplier-card { position: relative; }
+  .seal-image { position: absolute; top: 8px; right: -30px; height: 40%; width: auto; object-fit: contain; opacity: 0.8; }
   .recipient-grid { width: 100%; border-collapse: collapse; height: 100%; text-align: center; }
   .recipient-grid th, .recipient-grid td { border: 1px solid #000; padding: 6px; }
   .recipient-grid tr + tr th, .recipient-grid tr + tr td { border-top-color: transparent; }
@@ -137,6 +141,7 @@
 
       <!-- 공급자 정보 박스 (고정) -->
       <div class="supplier-card info-card">
+        <img id="seal-image" src="" alt="직인" class="seal-image" style="display: none;">
         <table class="supplier-grid" aria-label="공급자 정보">
 
   <tr class="header">
@@ -176,6 +181,7 @@
       <tbody id="items-body"></tbody>
     </table>
 
+    
     <!-- 합계 -->
     <div class="sum">
       <table>
@@ -184,6 +190,12 @@
         <tr><td>부 가 세</td><td class="t-right" id="sum-vat"></td></tr>
         <tr><td><b>합 계</b></td><td class="t-right" id="sum-total"></td></tr>
       </table>
+    </div>
+    <!-- 비고 내용 -->
+    <div id="note-content">
+        ** 메탈마스크 개당110,000원 입니다.. <br/>
+        ** 메탈마스크 프레임은 대여 기준입니다. <br/>
+        ** 추후 메탈마스크 폐기시에 프레임은 반납요청드립니다. <br/>
     </div>
 
   </div>
@@ -227,6 +239,13 @@ document.getElementById("s-address").textContent = data.supplier.address || "";
 document.getElementById("s-biz-type").textContent = data.supplier.bizType || "";
 document.getElementById("s-biz-item").textContent = data.supplier.bizItem || "";
 document.getElementById("s-contact").textContent = data.supplier.contact || "";
+
+// 직인 이미지 표시
+const sealImg = document.getElementById("seal-image");
+if (data.supplier.sealImage) {
+  sealImg.src = data.supplier.sealImage;
+  sealImg.style.display = "block";
+}
 
 document.getElementById("sum-supply").textContent = won(data.supply);
 document.getElementById("sum-vat").textContent = won(data.vat);

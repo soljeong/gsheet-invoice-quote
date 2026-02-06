@@ -63,7 +63,7 @@ function showPreview() {
     template.data = data;
 
     const htmlOutput = template.evaluate()
-      .setSandboxMode(HtmlService.SandboxMode.IFRAME)
+      .setSandboxMode(HtmlService.SandboxMode.NATIVE)
       .setWidth(1200)
       .setHeight(900);
 
@@ -203,6 +203,34 @@ function getSettings_(ss) {
     if (key) map[key] = row[1];
   });
 
+  // PDF 저장 폴더에서 직인 이미지 파일 찾기
+  let sealImageData = '';
+  
+  try {
+    const rootFolder = DriveApp.getRootFolder();
+    const folderIterator = rootFolder.getFoldersByName('견적서');
+    
+    if (folderIterator.hasNext()) {
+      const folder = folderIterator.next();
+      const files = folder.getFilesByName('seal.jpeg');
+      
+      if (files.hasNext()) {
+        const file = files.next();
+        const blob = file.getBlob();
+        const base64 = Utilities.base64Encode(blob.getBytes());
+        const mimeType = blob.getContentType();
+        sealImageData = `data:${mimeType};base64,${base64}`;
+        Logger.log('직인 이미지 로드 완료. MimeType: ' + mimeType);
+      } else {
+        Logger.log('경고: 견적서 폴더에서 seal.jpeg를 찾을 수 없습니다.');
+      }
+    } else {
+      Logger.log('경고: 견적서 폴더가 없습니다.');
+    }
+  } catch (e) {
+    Logger.log('직인 이미지 로드 실패: ' + e.message);
+  }
+
   // 필수값 체크 생략(없으면 빈값)
   return {
     supplier: {
@@ -214,7 +242,8 @@ function getSettings_(ss) {
       bizItem: map['공급자_종목'] || '',
       contact: map['공급자_연락처'] || '',
       email: map['공급자_이메일'] || '',
-      fax: map['공급자_팩스'] || ''
+      fax: map['공급자_팩스'] || '',
+      sealImage: sealImageData
     }
   };
 }

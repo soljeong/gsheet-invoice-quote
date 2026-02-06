@@ -14,7 +14,8 @@ if (typeof window !== "undefined") {
     address: "서울시 강남구 테헤란로 123",
     bizType: "도소매",
     bizItem: "소프트웨어",
-    contact: "02-123-4567"
+    contact: "02-123-4567",
+    sealImage: "seal-sample.png"
   },
   items: [
     { name: "서비스 A", spec: "월간", qty: 1, unit: 150000, amount: 150000, note: "" },

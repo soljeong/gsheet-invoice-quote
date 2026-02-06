@@ -1,0 +1,11 @@
+<svg width="100" height="100" xmlns="http://www.w3.org/2000/svg">
+  <!-- 외곽 원 -->
+  <circle cx="50" cy="50" r="45" fill="none" stroke="#cc0000" stroke-width="3"/>
+  
+  <!-- 내부 원 -->
+  <circle cx="50" cy="50" r="35" fill="none" stroke="#cc0000" stroke-width="2"/>
+  
+  <!-- 중앙 텍스트 (대표이사 인) -->
+  <text x="50" y="45" font-family="sans-serif" font-size="12" fill="#cc0000" text-anchor="middle" font-weight="bold">대표이사</text>
+  <text x="50" y="62" font-family="sans-serif" font-size="16" fill="#cc0000" text-anchor="middle" font-weight="bold">印</text>
+</svg>

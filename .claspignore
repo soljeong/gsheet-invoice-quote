@@ -1,2 +1,8 @@
 preview-data.js
 scripts/sync-template-from-preview.js
+generate-seal.js
+seal-sample.svg
+seal-sample.png
+node_modules/**
+package.json
+package-lock.json
